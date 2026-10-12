@@ -1,0 +1,49 @@
+{
+  "$comment": "CoreLink Teller mock (tenant a, no prefix) and MeridianCU (tenant b, /mcu prefix). Routes are listed explicitly so /__admin/* and anything new stay denied.",
+  "allowedOrigins": ["http://127.0.0.1:*", "http://localhost:*"],
+  "allowedRoutes": [
+    "/",
+    "/login",
+    "/logout",
+    "/notice",
+    "/hdr",
+    "/nav",
+    "/main",
+    "/unavail",
+    "/search",
+    "/member",
+    "/subacct",
+    "/subacct/commit",
+    "/mcu",
+    "/mcu/",
+    "/mcu/login",
+    "/mcu/logout",
+    "/mcu/notice",
+    "/mcu/hdr",
+    "/mcu/nav",
+    "/mcu/main",
+    "/mcu/unavail",
+    "/mcu/search",
+    "/mcu/member",
+    "/mcu/subacct",
+    "/mcu/subacct/commit"
+  ],
+  "allowedActions": ["navigate", "click", "type", "select", "check", "press"],
+  "blockedTargets": [
+    {
+      "namePattern": "\\b(delete|remove|close\\s+(the\\s+)?account|wire|transfer\\s+funds|void|reverse|charge[\\s-]?off|write[\\s-]?off)\\b",
+      "reason": "destructive back-office function outside the scope of any CapabilityForge capability"
+    },
+    {
+      "namePattern": "\\b(teller\\s+drawer|cash\\s+drawer)\\b",
+      "reason": "cash-handling functions are never automated"
+    }
+  ],
+  "risk": {
+    "safe": "allow",
+    "reversible": "allow",
+    "irreversible": "require_grant"
+  },
+  "humanMode": "log_only",
+  "discoveryDefaultRisk": "reversible"
+}

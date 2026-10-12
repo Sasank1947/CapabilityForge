@@ -16,9 +16,15 @@ export const BlockedTarget = z.object({
 });
 export type BlockedTarget = z.infer<typeof BlockedTarget>;
 
+/** An exact origin ("http://localhost:4100") or a host with any port ("http://127.0.0.1:*"). */
+export const OriginPattern = z
+  .string()
+  .refine((s) => /^https?:\/\/[^/:*?#@\s]+:\*$/.test(s) || URL.canParse(s), {
+    message: 'must be an origin like "http://localhost:4100" or "http://127.0.0.1:*"',
+  });
+
 export const PolicyConfig = z.object({
-  /** Exact origins, e.g. "http://localhost:4100". */
-  allowedOrigins: z.array(z.string().url()).min(1),
+  allowedOrigins: z.array(OriginPattern).min(1),
   /** Glob patterns over URL pathnames ("*" = one segment, "**" = any depth). */
   allowedRoutes: z.array(z.string().startsWith("/")).min(1),
   allowedActions: z.array(z.enum(SURFACE_ACTION_TYPES)).min(1),
@@ -76,8 +82,14 @@ export type PolicyDecision =
   | { verdict: "allow"; ruleId: PolicyRuleId; reason: string; grant?: Grant }
   | { verdict: "deny"; ruleId: PolicyRuleId; reason: string }
   | { verdict: "escalate"; ruleId: PolicyRuleId; reason: string; requiredGrant?: Grant["kind"] }
-  /** Returned for human actions that would have been denied for automation. */
-  | { verdict: "logged"; ruleId: "human_log_only"; reason: string; wouldHaveBeen: "deny" | "escalate" };
+  /** Returned for every human action; `wouldHaveBeen` is the verdict automation would have received. */
+  | {
+      verdict: "logged";
+      ruleId: "human_log_only";
+      reason: string;
+      wouldHaveBeen: "allow" | "deny" | "escalate";
+      underlyingRuleId?: PolicyRuleId;
+    };
 
 export type PolicyVerdict = PolicyDecision["verdict"];
 
