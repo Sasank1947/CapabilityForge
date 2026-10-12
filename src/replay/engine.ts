@@ -19,7 +19,11 @@ import type { Observation, Surface, SurfaceAction } from "../surface/types.js";
 import { applyTransforms, describeCondition, evalCondition, type EvalContext } from "./conditions.js";
 import type { RecoveryRecord, ReplayResult, StrategyHit } from "./result.js";
 
-export type EscalateDecision = "resume" | "abort";
+export type EscalateDecision =
+  | "resume"
+  | "abort"
+  | { action: "resume_from"; stepId: string }
+  | { action: "fail"; expected: string; observed: string };
 
 export interface EscalateInfo {
   reason: string;
@@ -562,6 +566,16 @@ export class ReplayEngine {
   private async escalate(info: EscalateInfo): Promise<StepOutcome> {
     const decision = this.onEscalate ? await this.onEscalate(info) : "abort";
     if (decision === "resume") return { kind: "done" };
+    if (typeof decision === "object" && decision.action === "resume_from") {
+      this.emit("control_changed", { resumeStepId: decision.stepId, reason: info.reason }, info.stepId ?? undefined);
+      return { kind: "restart", stepId: decision.stepId };
+    }
+    if (typeof decision === "object" && decision.action === "fail") {
+      return {
+        kind: "result",
+        result: this.fail("unknown_screen_state", info.stepId, decision.expected, decision.observed),
+      };
+    }
     const interventionId = newId("iv");
     this.emit("intervention_requested", { reason: info.reason, interventionId }, info.stepId ?? undefined);
     return {

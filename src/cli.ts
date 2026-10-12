@@ -7,16 +7,10 @@ import { artifactJsonSchema, tenantOverlayJsonSchema } from "./artifact/schema.j
 import { listArtifacts, loadArtifact, resolveArtifactPath } from "./artifact/store.js";
 import { serveMcpStdio } from "./catalog/server.js";
 import type { EvidenceSink, NewRunEvent, RedactedPayload, RunEvent, RunManifest } from "./evidence/types.js";
+import { SessionController, startHandoffHost, startOperatorConsole, LeasedSurface } from "./handoff/index.js";
 import type { Grant, PolicyDecision, PolicyGate, PolicyRequest } from "./policy/types.js";
 import { replay } from "./replay/engine.js";
 import { PlaywrightWebSurface } from "./surface/playwright-web.js";
-
-function notImplemented(name: string): () => void {
-  return () => {
-    console.error(`forge ${name}: not implemented yet`);
-    process.exitCode = 2;
-  };
-}
 
 function collect(value: string, previous: string[]): string[] {
   return previous.concat([value]);
@@ -189,13 +183,15 @@ function buildProgram(): Command {
     .option("-i, --input <kv>", "input as name=value (repeatable)", collect, [])
     .option("--base-url <url>", "already-running CoreLink origin (starts an ephemeral app when omitted)")
     .option("--headed", "launch Chromium headed (for handoff / debugging)", false)
+    .option("--operator", "start the operator console and wait on escalation", false)
+    .option("--operator-port <n>", "operator console port", "4200")
     .option("--approve-irreversible", "grant irreversible steps for this invocation", false)
     .option("--fault <spec>", "inject X-Fault on every request (e.g. slow_load:2000)")
     .option("--secret <kv>", "secret as name=value (repeatable); defaults come from env:// refs", collect, [])
     .option("--tenant <id>", "recorded on the result")
     .option("--overlay <path>", "tenant overlay JSON to apply before replay")
     .action(
-      async (artifactSpec: string, opts: { input: string[]; baseUrl?: string; headed?: boolean; approveIrreversible?: boolean; fault?: string; secret: string[]; tenant?: string; overlay?: string }) => {
+      async (artifactSpec: string, opts: { input: string[]; baseUrl?: string; headed?: boolean; operator?: boolean; operatorPort?: string; approveIrreversible?: boolean; fault?: string; secret: string[]; tenant?: string; overlay?: string }) => {
         const path = resolveArtifactPath(artifactSpec);
         let artifact = loadArtifact(path);
         if (opts.overlay) artifact = applyOverlay(artifact, loadOverlay(opts.overlay));
@@ -225,17 +221,49 @@ function buildProgram(): Command {
           });
         }
 
+        const useOperator = Boolean(opts.operator || opts.headed);
         const surface = await PlaywrightWebSurface.launch({
-          headless: !opts.headed,
+          headless: !useOperator,
           extraHTTPHeaders: opts.fault ? { "X-Fault": opts.fault } : undefined,
           actionTimeoutMs: 20_000,
         });
+        const evidence = new CliEvidence(invocationId);
+        const policy = cliPolicy();
+        const handoff = useOperator
+          ? await startHandoffHost({
+              runId: invocationId,
+              source: "replay",
+              surface,
+              artifact,
+              evidence,
+              policy,
+              invocationId,
+              port: Number(opts.operatorPort ?? 4200),
+              inputs,
+              secrets,
+            }).catch(() =>
+              startHandoffHost({
+                runId: invocationId,
+                source: "replay",
+                surface,
+                artifact,
+                evidence,
+                policy,
+                invocationId,
+                port: 0,
+                inputs,
+                secrets,
+              }),
+            )
+          : undefined;
+        if (handoff) process.stderr.write(`Operator console: ${handoff.console.url}\n`);
+        const gated = handoff ? new LeasedSurface(surface, handoff.controller, "replay") : surface;
         try {
           const result = await replay({
             artifact,
-            surface,
-            policy: cliPolicy(),
-            evidence: new CliEvidence(invocationId),
+            surface: gated,
+            policy,
+            evidence,
             inputs,
             secrets,
             baseUrl,
@@ -243,12 +271,13 @@ function buildProgram(): Command {
             grants,
             invocationId,
             tenant: opts.tenant,
-            onEscalate: async () => "abort",
+            onEscalate: handoff ? (info) => handoff.escalate(info) : async () => "abort",
           });
           process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
           if (result.status === "failure") process.exitCode = 1;
           if (result.status === "escalated") process.exitCode = 3;
         } finally {
+          await handoff?.close();
           await surface.close();
           await owned?.close();
         }
@@ -258,7 +287,23 @@ function buildProgram(): Command {
   program
     .command("operator")
     .description("Start the operator console for human interventions")
-    .action(notImplemented("operator"));
+    .option("-p, --port <n>", "listen port", "4200")
+    .action(async (opts: { port: string }) => {
+      const controller = new SessionController({
+        runId: `operator-${Date.now().toString(16)}`,
+        source: "replay",
+      });
+      const consoleHandle = await startOperatorConsole({ controller, port: Number(opts.port) });
+      console.log(`Operator console listening at ${consoleHandle.url}`);
+      console.log("A live replay attaches the same UI when you run: forge replay <artifact> --headed");
+      console.log("Remote CDP/noVNC, operator auth, and a distributed audit trail are not built.");
+      const stop = () => {
+        void consoleHandle.close().then(() => process.exit(0));
+      };
+      process.on("SIGINT", stop);
+      process.on("SIGTERM", stop);
+      await new Promise(() => undefined);
+    });
 
   program
     .command("serve-mcp")

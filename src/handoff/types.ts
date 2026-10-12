@@ -70,5 +70,60 @@ export interface InterventionRequest {
     at: string;
     outcome: "handed_back" | "approved" | "aborted";
     note?: string;
+    resumeStepId?: string;
   };
+}
+
+export type NewIntervention = Omit<
+  InterventionRequest,
+  "id" | "runId" | "createdAt" | "status" | "resolution" | "allowedActions" | "source"
+> & {
+  allowedActions?: OperatorAction[];
+  source?: InterventionRequest["source"];
+};
+
+/** A redacted human gesture captured by the in-page recorder. */
+export interface HumanAction {
+  kind: "click" | "type" | "select" | "check" | "press";
+  url: string;
+  tag?: string;
+  role?: string;
+  name?: string;
+  label?: string;
+  text?: string;
+  /** Already redacted when `sensitive` or when a Redactor is attached. */
+  value?: string;
+  sensitive?: boolean;
+  framePath?: string[];
+  at: string;
+}
+
+export interface ResumeMatch {
+  stepId: string;
+  index: number;
+  skippedStepIds: string[];
+}
+
+export class IllegalTransitionError extends Error {
+  readonly from: ControlState;
+  readonly to: ControlState;
+  constructor(from: ControlState, to: ControlState) {
+    super(`illegal control transition ${from} -> ${to}`);
+    this.name = "IllegalTransitionError";
+    this.from = from;
+    this.to = to;
+  }
+}
+
+export class LeaseViolationError extends Error {
+  readonly holder: Controller;
+  readonly actor: Controller;
+  readonly state: ControlState;
+  constructor(state: ControlState, holder: Controller, actor: Controller) {
+    super(`lease held by ${holder ?? "nobody"} in ${state}; ${actor ?? "unknown"} cannot act`);
+    this.name = "LeaseViolationError";
+    this.holder = holder;
+    this.actor = actor;
+    this.state = state;
+  }
 }
