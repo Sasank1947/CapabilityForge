@@ -1,0 +1,10 @@
+{
+  "startedAt": "2026-10-12T04:44:54.220Z",
+  "capabilityId": "corelink.lookup_member_balance",
+  "capabilityVersion": "1.0.0",
+  "tenant": "b",
+  "runId": "tenant-b",
+  "mode": "replay",
+  "finishedAt": "2026-10-12T04:44:55.513Z",
+  "status": "success"
+}

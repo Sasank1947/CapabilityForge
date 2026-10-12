@@ -1,0 +1,85 @@
+{
+  "runId": "replay-server-error",
+  "capabilityId": "corelink.lookup_member_balance",
+  "capabilityVersion": "1.0.0",
+  "contentHash": "sha256:dc9cbf217fb29fefb6bedd3f21cb4cfc2de0f651a1839f99ea7a999151cd612a",
+  "startedAt": "2026-10-12T04:40:26.964Z",
+  "finishedAt": "2026-10-12T04:40:27.324Z",
+  "durationMs": 360,
+  "recoveries": [],
+  "strategyHits": [
+    {
+      "stepId": "enter-username",
+      "strategyIndex": 1,
+      "strategyKind": "label",
+      "fallback": true,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 0
+        },
+        {
+          "strategyIndex": 1,
+          "strategyKind": "label",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "enter-password",
+      "strategyIndex": 0,
+      "strategyKind": "label",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "label",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "sign-in",
+      "strategyIndex": 0,
+      "strategyKind": "role",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "open-inquiry",
+      "strategyIndex": 0,
+      "strategyKind": "role",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    }
+  ],
+  "evidenceDir": "/Users/sasanksandeep/Documents/Interface.ai Assignment/CapabilityForge/evidence/replay-server-error",
+  "status": "failure",
+  "kind": "app_error",
+  "stepId": "open-inquiry",
+  "message": "app_error: screen state 'serverError'",
+  "expected": "CoreLink returned a server error",
+  "observed": "screen state 'serverError'",
+  "screenStateId": "serverError",
+  "url": "http://127.0.0.1:58720/",
+  "evidencePaths": [
+    "attachments/002-trace.zip"
+  ]
+}

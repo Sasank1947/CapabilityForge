@@ -1,0 +1,9 @@
+{
+  "startedAt": "2026-10-12T04:40:24.528Z",
+  "capabilityId": "corelink.lookup_member_balance",
+  "capabilityVersion": "1.0.0",
+  "runId": "replay-session-expired",
+  "mode": "replay",
+  "finishedAt": "2026-10-12T04:40:25.797Z",
+  "status": "success"
+}

@@ -1,0 +1,521 @@
+{
+  "schemaVersion": "capabilityforge/v1",
+  "id": "corelink.lookup_member_balance",
+  "version": "0.1.0",
+  "contentHash": "sha256:661e66a284a39f70028627f7fc7bf644bb5f5bd586768c100c06c29d7bccdba0",
+  "status": "draft",
+  "title": "Look up member savings balance",
+  "description": "Signs on to CoreLink Teller, searches for a member by member number, opens the detail page and returns the Regular Savings (S01) balance.",
+  "provenance": {
+    "source": "discovery",
+    "discoveryRunId": "20261012T042431Z-discovery-295346",
+    "model": "gpt-4.1-2025-04-14",
+    "recordedAt": "2026-10-12T04:24:43.382Z",
+    "recordedOnTenant": "a",
+    "compilerVersion": "capabilityforge-compiler/0.1.0"
+  },
+  "app": {
+    "vendor": "CoreLink",
+    "product": "Teller",
+    "versionRange": ">=7.4 <8",
+    "surface": "legacy-web",
+    "entryRoute": "/login",
+    "fingerprint": {
+      "titlePattern": "CoreLink Teller",
+      "versionText": "v7.4.2",
+      "landmarks": [
+        "Member Inquiry",
+        "OPERATOR SIGN ON"
+      ]
+    }
+  },
+  "inputs": {
+    "memberId": {
+      "type": "string",
+      "description": "Five-digit member number",
+      "sensitivity": "pii",
+      "required": true,
+      "pattern": "^[0-9]{5}$",
+      "example": "12345"
+    }
+  },
+  "outputs": {
+    "savingsBalance": {
+      "type": "number",
+      "description": "Current Regular Savings (S01) balance in USD",
+      "sensitivity": "pii",
+      "extraction": {
+        "target": {
+          "description": "Member Inquiry",
+          "framePath": [
+            "nav"
+          ],
+          "strategies": [
+            {
+              "kind": "role",
+              "role": "link",
+              "name": "Member Inquiry",
+              "exact": true
+            },
+            {
+              "kind": "visual",
+              "anchorText": "Member Inquiry",
+              "direction": "inside",
+              "note": "recorded at action time"
+            }
+          ],
+          "cardinality": "exactlyOne",
+          "fingerprint": {
+            "role": "link",
+            "name": "Member Inquiry",
+            "tag": "a",
+            "text": "Member Inquiry",
+            "bbox": {
+              "x": 10,
+              "y": 38,
+              "width": 111,
+              "height": 17
+            }
+          }
+        },
+        "read": "text",
+        "transforms": [
+          {
+            "kind": "trim"
+          },
+          {
+            "kind": "parseNumber",
+            "allowCurrency": true
+          }
+        ]
+      }
+    }
+  },
+  "secrets": {
+    "username": {
+      "ref": "env://CORELINK_USER",
+      "description": "Teller operator id"
+    },
+    "password": {
+      "ref": "env://CORELINK_PASSWORD",
+      "description": "Teller operator password"
+    }
+  },
+  "steps": [
+    {
+      "id": "s01-navigating-to-the-corelink-teller-en",
+      "intent": "Navigating to the CoreLink Teller entry route to start the member balance lookup process.",
+      "action": {
+        "type": "navigate",
+        "url": "/login"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s02-entering-the-teller-operator-usernam",
+      "intent": "Entering the Teller operator username to begin login.",
+      "target": {
+        "description": "Operator ID:",
+        "framePath": [],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Operator ID:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "Operator ID:",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "textbox",
+          "tag": "input",
+          "labelText": "Operator ID:",
+          "bbox": {
+            "x": 542,
+            "y": 132,
+            "width": 125,
+            "height": 21
+          }
+        }
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "secret",
+          "name": "username"
+        },
+        "clear": true
+      },
+      "risk": "reversible",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s03-entering-the-teller-operator-passwor",
+      "intent": "Entering the Teller operator password to complete login.",
+      "target": {
+        "description": "Password:",
+        "framePath": [],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Password:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "Password:",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "textbox",
+          "tag": "input",
+          "labelText": "Password:",
+          "bbox": {
+            "x": 542,
+            "y": 159,
+            "width": 125,
+            "height": 21
+          }
+        }
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "secret",
+          "name": "password"
+        },
+        "clear": true
+      },
+      "risk": "reversible",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s04-clicking-the-sign-on-button-to-submi",
+      "intent": "Clicking the 'Sign On' button to submit login credentials and proceed to the main Teller navigation.",
+      "target": {
+        "description": "Sign On",
+        "framePath": [],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Sign On",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "Sign On",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "button",
+          "name": "Sign On",
+          "tag": "input",
+          "bbox": {
+            "x": 542,
+            "y": 186,
+            "width": 64,
+            "height": 21
+          }
+        }
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "reversible",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s05-clicking-member-inquiry-in-the-navig",
+      "intent": "Clicking 'Member Inquiry' in the navigation frame to begin the process of looking up a member's savings balance.",
+      "target": {
+        "description": "Member Inquiry",
+        "framePath": [
+          "nav"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "link",
+            "name": "Member Inquiry",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "Member Inquiry",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "link",
+          "name": "Member Inquiry",
+          "tag": "a",
+          "text": "Member Inquiry",
+          "bbox": {
+            "x": 10,
+            "y": 38,
+            "width": 111,
+            "height": 17
+          }
+        }
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s06-entering-the-provided-memberid-into-",
+      "intent": "Entering the provided memberId into the 'Member Number' field to search for the member's details.",
+      "target": {
+        "description": "Member Number:",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Member Number:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "Member Number:",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "textbox",
+          "tag": "input",
+          "labelText": "Member Number:",
+          "bbox": {
+            "x": 150,
+            "y": 35,
+            "width": 97,
+            "height": 21
+          }
+        }
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "input",
+          "name": "memberId"
+        },
+        "clear": true
+      },
+      "risk": "reversible",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s07-clicking-the-search-button-to-perfor",
+      "intent": "Clicking the 'Search' button to perform a member search with the entered member number.",
+      "target": {
+        "description": "Search",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Search",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "Search",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "button",
+          "name": "Search",
+          "tag": "input",
+          "bbox": {
+            "x": 131,
+            "y": 97,
+            "width": 58,
+            "height": 21
+          }
+        }
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s08-clicking-the-member-number-link-in-t",
+      "intent": "Clicking the member number link in the results table to view the member's detail page and access savings information.",
+      "target": {
+        "description": "12345",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "link",
+            "name": "{{memberId}}",
+            "exact": true
+          },
+          {
+            "kind": "visual",
+            "anchorText": "{{memberId}}",
+            "direction": "inside",
+            "note": "recorded at action time"
+          }
+        ],
+        "cardinality": "exactlyOne",
+        "fingerprint": {
+          "role": "link",
+          "name": "12345",
+          "tag": "a",
+          "text": "12345",
+          "bbox": {
+            "x": 15,
+            "y": 189,
+            "width": 45,
+            "height": 17
+          }
+        }
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "reversible",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s09-extracting-the-regular-savings-s01-b",
+      "intent": "Extracting the Regular Savings (S01) balance from the MEMBER DETAIL page, as required by the declared output.",
+      "action": {
+        "type": "extract",
+        "outputs": [
+          "savingsBalance"
+        ]
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    }
+  ],
+  "screenStates": [
+    {
+      "id": "memberNotFound",
+      "description": "Search returned no matching member",
+      "detect": {
+        "kind": "textPresent",
+        "text": "NO RECORD FOUND FOR MEMBER"
+      },
+      "priority": 10,
+      "handler": {
+        "kind": "outcome",
+        "code": "MEMBER_NOT_FOUND",
+        "message": "No member with that number",
+        "outputs": []
+      }
+    },
+    {
+      "id": "sessionExpired",
+      "description": "Session timed out back to sign-on",
+      "detect": {
+        "kind": "any",
+        "conditions": [
+          {
+            "kind": "textPresent",
+            "text": "SESSION TIMED OUT"
+          },
+          {
+            "kind": "textPresent",
+            "text": "PLEASE SIGN ON AGAIN"
+          }
+        ]
+      },
+      "priority": 20,
+      "handler": {
+        "kind": "fail",
+        "failureKind": "timeout",
+        "message": "Session expired"
+      }
+    },
+    {
+      "id": "maintenanceDialog",
+      "description": "System maintenance interstitial",
+      "detect": {
+        "kind": "textPresent",
+        "text": "System maintenance tonight"
+      },
+      "priority": 15,
+      "handler": {
+        "kind": "escalate",
+        "reason": "Unexpected maintenance dialog"
+      }
+    },
+    {
+      "id": "serverError",
+      "description": "Application 500 page",
+      "detect": {
+        "kind": "any",
+        "conditions": [
+          {
+            "kind": "titleMatches",
+            "pattern": "^500"
+          },
+          {
+            "kind": "textPresent",
+            "text": "Internal Server Error"
+          }
+        ]
+      },
+      "priority": 30,
+      "handler": {
+        "kind": "fail",
+        "failureKind": "app_error",
+        "message": "Application returned a server error"
+      }
+    }
+  ],
+  "successCheckpoint": {
+    "description": "REGULAR SAVINGS",
+    "condition": {
+      "kind": "textPresent",
+      "text": "REGULAR SAVINGS"
+    }
+  }
+}

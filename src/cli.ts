@@ -1,15 +1,24 @@
 import "dotenv/config";
+import { existsSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Command } from "commander";
 import { startCoreLink, type CoreLinkHandle } from "../apps/corelink/server.js";
 import { runDiscoveryCommand } from "./agent/run.js";
 import { applyOverlay, loadOverlay } from "./artifact/overlay.js";
-import { artifactJsonSchema, tenantOverlayJsonSchema } from "./artifact/schema.js";
+import { artifactJsonSchema, tenantOverlayJsonSchema, type CapabilityArtifact } from "./artifact/schema.js";
 import { listArtifacts, loadArtifact, resolveArtifactPath } from "./artifact/store.js";
 import { serveMcpStdio } from "./catalog/server.js";
-import type { EvidenceSink, NewRunEvent, RedactedPayload, RunEvent, RunManifest } from "./evidence/types.js";
+import { JsonlEvidenceSink } from "./evidence/sink.js";
+import { startTrace } from "./evidence/trace.js";
+import type { EvidenceSink, NewRunEvent, RunEvent, RunManifest } from "./evidence/types.js";
 import { SessionController, startHandoffHost, startOperatorConsole, LeasedSurface } from "./handoff/index.js";
+import { loadPolicy } from "./policy/config.js";
+import { DefaultPolicyGate } from "./policy/gate.js";
+import { Redactor } from "./policy/redact.js";
 import type { Grant, PolicyDecision, PolicyGate, PolicyRequest } from "./policy/types.js";
 import { replay } from "./replay/engine.js";
+import { driftReport } from "./replay/result.js";
 import { PlaywrightWebSurface } from "./surface/playwright-web.js";
 
 function collect(value: string, previous: string[]): string[] {
@@ -53,27 +62,44 @@ function cliPolicy(): PolicyGate {
   };
 }
 
-class CliEvidence implements EvidenceSink {
-  readonly runId: string;
-  readonly dir: string;
-  private seq = 0;
-  constructor(runId: string) {
-    this.runId = runId;
-    this.dir = `cli://${runId}`;
+/**
+ * File-backed sink whose `close` is a no-op so the replay engine does not
+ * finalize the run before the CLI can attach a screenshot / Playwright trace.
+ */
+class DeferredCloseSink implements EvidenceSink {
+  constructor(private readonly inner: JsonlEvidenceSink) {}
+  get runId(): string {
+    return this.inner.runId;
+  }
+  get dir(): string {
+    return this.inner.dir;
   }
   append(event: NewRunEvent): RunEvent {
-    return {
-      runId: this.runId,
-      seq: ++this.seq,
-      at: new Date().toISOString(),
-      ...event,
-      payload: event.payload as RedactedPayload,
-    };
+    return this.inner.append(event);
   }
-  async attach(): Promise<string> {
-    return "";
+  attach(name: string, data: Buffer): Promise<string> {
+    return this.inner.attach(name, data);
   }
   async close(_manifest: Partial<RunManifest>): Promise<void> {}
+  finish(manifest: Partial<RunManifest>): Promise<void> {
+    return this.inner.close(manifest);
+  }
+}
+
+function replayPolicy(): PolicyGate {
+  if (existsSync("policies/corelink.json")) return new DefaultPolicyGate(loadPolicy("policies/corelink.json"));
+  return cliPolicy();
+}
+
+function replayEvidence(artifact: CapabilityArtifact, inputs: Record<string, string>, secrets: Record<string, string>, tenant?: string): DeferredCloseSink {
+  const redactor = Redactor.forRun(artifact, { inputs, secrets });
+  return new DeferredCloseSink(
+    new JsonlEvidenceSink({
+      redactor,
+      mode: "replay",
+      manifest: { capabilityId: artifact.id, capabilityVersion: artifact.version, tenant },
+    }),
+  );
 }
 
 function buildProgram(): Command {
@@ -227,28 +253,31 @@ function buildProgram(): Command {
           extraHTTPHeaders: opts.fault ? { "X-Fault": opts.fault } : undefined,
           actionTimeoutMs: 20_000,
         });
-        const evidence = new CliEvidence(invocationId);
-        const policy = cliPolicy();
+        const evidence = replayEvidence(artifact, inputs, secrets, opts.tenant);
+        const policy = replayPolicy();
+        const redactor = Redactor.forRun(artifact, { inputs, secrets });
         const handoff = useOperator
           ? await startHandoffHost({
-              runId: invocationId,
+              runId: evidence.runId,
               source: "replay",
               surface,
               artifact,
               evidence,
               policy,
+              redactor,
               invocationId,
               port: Number(opts.operatorPort ?? 4200),
               inputs,
               secrets,
             }).catch(() =>
               startHandoffHost({
-                runId: invocationId,
+                runId: evidence.runId,
                 source: "replay",
                 surface,
                 artifact,
                 evidence,
                 policy,
+                redactor,
                 invocationId,
                 port: 0,
                 inputs,
@@ -258,6 +287,7 @@ function buildProgram(): Command {
           : undefined;
         if (handoff) process.stderr.write(`Operator console: ${handoff.console.url}\n`);
         const gated = handoff ? new LeasedSurface(surface, handoff.controller, "replay") : surface;
+        const trace = await startTrace(surface.context, evidence, { title: artifact.id });
         try {
           const result = await replay({
             artifact,
@@ -273,7 +303,22 @@ function buildProgram(): Command {
             tenant: opts.tenant,
             onEscalate: handoff ? (info) => handoff.escalate(info) : async () => "abort",
           });
-          process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+          try {
+            const shot = await surface.screenshot({ maskValues: redactor.screenshotMaskValues() });
+            await evidence.attach("final.png", shot);
+          } catch {
+            /* headed teardown or a crashed page should not hide the result */
+          }
+          const tracePath = await trace.stop({ keep: result.status === "failure", name: "trace.zip" });
+          if (result.status === "failure" && tracePath) {
+            result.evidencePaths = [...result.evidencePaths, tracePath];
+          }
+          if (opts.overlay) {
+            await writeFile(join(evidence.dir, "drift-report.json"), `${JSON.stringify(driftReport(result.strategyHits), null, 2)}\n`);
+          }
+          await writeFile(join(evidence.dir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
+          await evidence.finish({ status: result.status, capabilityId: artifact.id, capabilityVersion: artifact.version, tenant: opts.tenant });
+          process.stdout.write(`${JSON.stringify({ ...result, evidenceDir: evidence.dir }, null, 2)}\n`);
           if (result.status === "failure") process.exitCode = 1;
           if (result.status === "escalated") process.exitCode = 3;
         } finally {

@@ -1,0 +1,16 @@
+{
+  "stepsResolved": 8,
+  "fallbackSteps": [
+    {
+      "stepId": "enter-username",
+      "strategyIndex": 1,
+      "strategyKind": "label"
+    },
+    {
+      "stepId": "enter-member",
+      "strategyIndex": 1,
+      "strategyKind": "label"
+    }
+  ],
+  "driftScore": 0.25
+}

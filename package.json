@@ -12,7 +12,8 @@
     "app": "node --import tsx src/cli.ts app",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "evidence": "node --import tsx scripts/pack-evidence.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

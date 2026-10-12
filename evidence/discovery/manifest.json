@@ -1,0 +1,10 @@
+{
+  "startedAt": "2026-10-12T04:24:31.159Z",
+  "goal": "Sign on to CoreLink Teller, open [PII:savingsBalance#7157] from the nav frame, type the declared memberId, click Search, then click the member-number link in the results table (the frameset URL may stay '/'). On the member detail page extract the Regular Savings (S01) balance as savingsBalance. Evidence of success is visible text such as MEMBER DETAIL or REGULAR SAVINGS. Do not request_human after a single unchanged click — wait for the new snapshot and click the result row.",
+  "capabilityId": "corelink.lookup_member_balance",
+  "runId": "20261012T042431Z-discovery-295346",
+  "mode": "discovery",
+  "finishedAt": "2026-10-12T04:24:43.388Z",
+  "status": "done",
+  "capabilityVersion": "0.1.0"
+}

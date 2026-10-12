@@ -16,7 +16,7 @@ import type { EvidenceSink, JsonValue, NewRunEvent, RedactedPayload } from "../e
 import type { Grant, PolicyDecision, PolicyGate } from "../policy/types.js";
 import { substituteTemplate } from "../surface/resolve.js";
 import type { Observation, Surface, SurfaceAction } from "../surface/types.js";
-import { applyTransforms, describeCondition, evalCondition, type EvalContext } from "./conditions.js";
+import { applyTransforms, classifyScreenState, describeCondition, evalCondition, type EvalContext } from "./conditions.js";
 import type { RecoveryRecord, ReplayResult, StrategyHit } from "./result.js";
 
 export type EscalateDecision =
@@ -263,18 +263,9 @@ export class ReplayEngine {
   }
 
   private async classify(stepId: string, obs: Observation): Promise<ScreenState | null> {
-    const ranked = this.artifact.screenStates
-      .map((s, i) => ({ s, i }))
-      .filter(({ s }) => !s.appliesTo || s.appliesTo.includes(stepId))
-      .sort((a, b) => b.s.priority - a.s.priority || a.i - b.i);
-    const ctx = this.evalCtx(obs);
-    for (const { s } of ranked) {
-      if (await evalCondition(s.detect, ctx)) {
-        this.emit("screen_state", { id: s.id, handler: s.handler.kind }, stepId);
-        return s;
-      }
-    }
-    return null;
+    const state = await classifyScreenState(this.artifact.screenStates, stepId, this.evalCtx(obs));
+    if (state) this.emit("screen_state", { id: state.id, handler: state.handler.kind }, stepId);
+    return state;
   }
 
   private async waitCondition(cond: Condition, timeoutMs: number): Promise<{ ok: boolean; observed: string }> {

@@ -1,4 +1,4 @@
-import type { Condition, Transform, ValueRef } from "../artifact/schema.js";
+import type { Condition, ScreenState, Transform, ValueRef } from "../artifact/schema.js";
 import { substituteTemplate } from "../surface/resolve.js";
 import type { Observation, Surface } from "../surface/types.js";
 
@@ -82,6 +82,25 @@ export async function evalCondition(cond: Condition, ctx: EvalContext): Promise<
       return norm(actual) === norm(ctx.resolveValue(cond.value));
     }
   }
+}
+
+/**
+ * Picks the first matching screen-state classifier. Higher `priority` wins;
+ * ties keep declaration order. `appliesTo` restricts a classifier to named steps.
+ */
+export async function classifyScreenState(
+  states: ScreenState[],
+  stepId: string,
+  ctx: EvalContext,
+): Promise<ScreenState | null> {
+  const ranked = states
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => !s.appliesTo || s.appliesTo.includes(stepId))
+    .sort((a, b) => b.s.priority - a.s.priority || a.i - b.i);
+  for (const { s } of ranked) {
+    if (await evalCondition(s.detect, ctx)) return s;
+  }
+  return null;
 }
 
 export function parseNumber(raw: string, allowCurrency = true): number {

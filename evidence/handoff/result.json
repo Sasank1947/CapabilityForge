@@ -1,0 +1,125 @@
+{
+  "runId": "handoff",
+  "capabilityId": "corelink.lookup_member_balance",
+  "capabilityVersion": "1.0.0",
+  "contentHash": "sha256:dc9cbf217fb29fefb6bedd3f21cb4cfc2de0f651a1839f99ea7a999151cd612a",
+  "startedAt": "2026-10-12T04:44:19.100Z",
+  "finishedAt": "2026-10-12T04:44:19.741Z",
+  "durationMs": 641,
+  "recoveries": [],
+  "strategyHits": [
+    {
+      "stepId": "enter-username",
+      "strategyIndex": 1,
+      "strategyKind": "label",
+      "fallback": true,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 0
+        },
+        {
+          "strategyIndex": 1,
+          "strategyKind": "label",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "enter-password",
+      "strategyIndex": 0,
+      "strategyKind": "label",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "label",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "sign-in",
+      "strategyIndex": 0,
+      "strategyKind": "role",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "open-inquiry",
+      "strategyIndex": 0,
+      "strategyKind": "role",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "enter-member",
+      "strategyIndex": 1,
+      "strategyKind": "label",
+      "fallback": true,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 0
+        },
+        {
+          "strategyIndex": 1,
+          "strategyKind": "label",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "search",
+      "strategyIndex": 0,
+      "strategyKind": "role",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    },
+    {
+      "stepId": "open-member",
+      "strategyIndex": 0,
+      "strategyKind": "role",
+      "fallback": false,
+      "attempts": [
+        {
+          "strategyIndex": 0,
+          "strategyKind": "role",
+          "matches": 1
+        }
+      ],
+      "fromOverlay": false
+    }
+  ],
+  "evidenceDir": "/Users/sasanksandeep/Documents/Interface.ai Assignment/CapabilityForge/evidence/handoff",
+  "status": "success",
+  "outputs": {
+    "savingsBalance": 1520.75
+  }
+}

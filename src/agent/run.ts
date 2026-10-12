@@ -162,6 +162,9 @@ export async function runDiscoveryCommand(opts: DiscoverCliOptions): Promise<Dis
       },
     });
 
+    const shot = await surface.screenshot({ maskValues: redactor.screenshotMaskValues() });
+    await evidence.attach("final.png", shot);
+
     let artifact: CapabilityArtifact | undefined;
     let artifactPath: string | undefined;
     if (result.status === "done") {
