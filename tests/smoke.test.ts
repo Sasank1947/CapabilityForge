@@ -19,4 +19,11 @@ describe("forge CLI", () => {
     const schema = JSON.parse(forge("schema")) as { definitions?: Record<string, unknown> };
     expect(schema.definitions).toHaveProperty("CapabilityArtifact");
   });
+
+  it("documents forge discover flags", () => {
+    const help = forge("discover", "--help");
+    expect(help).toMatch(/--preset/);
+    expect(help).toMatch(/--goal/);
+    expect(help).toMatch(/--param/);
+  });
 });
