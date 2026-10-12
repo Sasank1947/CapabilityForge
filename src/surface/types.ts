@@ -37,6 +37,8 @@ export interface FrameInfo {
   path: string[];
   url: string;
   name?: string;
+  /** Document title of the frame (framesets keep the meaningful title inside frames). */
+  title?: string;
 }
 
 export interface Observation {

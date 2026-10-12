@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "capabilityforge/v1",
+  "tenant": "b",
+  "baseId": "corelink.lookup_member_balance",
+  "baseVersionRange": "^1.0.0",
+  "appFingerprint": {
+    "titlePattern": "MeridianCU Teller",
+    "versionText": "v7.4.2",
+    "landmarks": ["Member Lookup", "MERIDIANCU STAFF LOGIN"]
+  },
+  "routes": [{ "fromPrefix": "/", "toPrefix": "/mcu/" }],
+  "labels": {
+    "Operator ID:": "User ID:",
+    "Password:": "Passcode:",
+    "Sign On": "Log In",
+    "Member Inquiry": "Member Lookup",
+    "Member Number:": "Member #:",
+    "Search": "Look Up",
+    "MEMBER DETAIL": "MEMBER PROFILE"
+  },
+  "targets": {
+    "enter-username": {
+      "prependStrategies": [
+        { "kind": "role", "role": "textbox", "name": "User ID:" },
+        { "kind": "label", "labelText": "User ID:", "relation": "right-of", "controlRole": "textbox" }
+      ]
+    },
+    "enter-password": {
+      "prependStrategies": [{ "kind": "label", "labelText": "Passcode:", "relation": "right-of" }]
+    },
+    "sign-in": {
+      "prependStrategies": [{ "kind": "role", "role": "button", "name": "Log In" }]
+    },
+    "open-inquiry": {
+      "prependStrategies": [{ "kind": "role", "role": "link", "name": "Member Lookup" }]
+    },
+    "enter-member": {
+      "prependStrategies": [
+        { "kind": "role", "role": "textbox", "name": "Member #:" },
+        { "kind": "label", "labelText": "Member #:", "relation": "right-of", "controlRole": "textbox" }
+      ]
+    },
+    "search": {
+      "prependStrategies": [{ "kind": "role", "role": "button", "name": "Look Up" }]
+    }
+  },
+  "extraScreenStates": [
+    {
+      "id": "acknowledgeNotice",
+      "description": "Tenant B post-login compliance notice interstitial",
+      "detect": {
+        "kind": "any",
+        "conditions": [
+          { "kind": "textPresent", "text": "IMPORTANT NOTICE" },
+          { "kind": "textPresent", "text": "Acknowledge Notice" },
+          { "kind": "urlMatches", "pattern": "/notice" }
+        ]
+      },
+      "priority": 18,
+      "handler": {
+        "kind": "recover",
+        "steps": [
+          {
+            "id": "ack-notice",
+            "intent": "Acknowledge the tenant notice interstitial",
+            "target": {
+              "description": "Acknowledge Notice button",
+              "strategies": [
+                { "kind": "role", "role": "button", "name": "Acknowledge Notice" },
+                { "kind": "text", "text": "Acknowledge Notice" },
+                { "kind": "css", "selector": "input[type=submit]" }
+              ]
+            },
+            "action": { "type": "click" },
+            "risk": "safe"
+          }
+        ],
+        "retry": { "maxAttempts": 2, "initialBackoffMs": 150, "factor": 2 },
+        "resume": { "mode": "restartFrom", "stepId": "open-inquiry" }
+      }
+    }
+  ]
+}

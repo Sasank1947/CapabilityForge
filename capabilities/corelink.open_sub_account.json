@@ -1,0 +1,973 @@
+{
+  "schemaVersion": "capabilityforge/v1",
+  "id": "corelink.open_sub_account",
+  "version": "1.0.0",
+  "status": "approved",
+  "title": "Open a member sub-account",
+  "description": "Signs on to CoreLink Teller, opens a member, fills the open-sub-account form, reviews the posting and submits it. Submit is irreversible. Returns the confirmation number.",
+  "provenance": {
+    "source": "hand-written",
+    "recordedAt": "2026-10-11T20:00:00.000Z",
+    "recordedOnTenant": "a"
+  },
+  "app": {
+    "vendor": "CoreLink",
+    "product": "Teller",
+    "versionRange": ">=7.4 <8",
+    "surface": "legacy-web",
+    "entryRoute": "/login",
+    "fingerprint": {
+      "titlePattern": "CoreLink Teller",
+      "versionText": "v7.4.2",
+      "landmarks": [
+        "Member Inquiry",
+        "OPERATOR SIGN ON"
+      ]
+    }
+  },
+  "inputs": {
+    "memberId": {
+      "type": "string",
+      "description": "Five-digit member number",
+      "sensitivity": "pii",
+      "required": true,
+      "pattern": "^[0-9]{5}$",
+      "example": "12345"
+    },
+    "accountType": {
+      "type": "string",
+      "description": "Sub-account type code",
+      "sensitivity": "internal",
+      "required": true,
+      "enum": [
+        "S20",
+        "S30",
+        "S40",
+        "D20"
+      ],
+      "example": "S20"
+    },
+    "nickname": {
+      "type": "string",
+      "description": "Optional nickname (letters, digits, space, hyphen; max 20)",
+      "sensitivity": "internal",
+      "required": false,
+      "maxLength": 20,
+      "example": "XMAS FUND"
+    },
+    "deposit": {
+      "type": "string",
+      "description": "Opening deposit amount, e.g. 100.00",
+      "sensitivity": "pii",
+      "required": true,
+      "pattern": "^\\d+(\\.\\d{1,2})?$",
+      "example": "100.00"
+    },
+    "fromSuffix": {
+      "type": "string",
+      "description": "Funding account suffix",
+      "sensitivity": "internal",
+      "required": true,
+      "pattern": "^[A-Z][0-9]{2}$",
+      "example": "S01"
+    }
+  },
+  "outputs": {
+    "confirmationNumber": {
+      "type": "string",
+      "description": "Posted confirmation number",
+      "sensitivity": "internal",
+      "extraction": {
+        "target": {
+          "description": "Confirmation number value",
+          "framePath": [
+            "main"
+          ],
+          "strategies": [
+            {
+              "kind": "label",
+              "labelText": "Confirmation Number:",
+              "relation": "right-of",
+              "exact": true
+            }
+          ],
+          "cardinality": "exactlyOne"
+        },
+        "read": "text",
+        "transforms": [
+          {
+            "kind": "trim"
+          }
+        ]
+      }
+    },
+    "newSuffix": {
+      "type": "string",
+      "description": "Suffix of the newly opened account",
+      "sensitivity": "internal",
+      "extraction": {
+        "target": {
+          "description": "New account cell",
+          "framePath": [
+            "main"
+          ],
+          "strategies": [
+            {
+              "kind": "label",
+              "labelText": "New Account:",
+              "relation": "right-of",
+              "exact": true
+            }
+          ],
+          "cardinality": "exactlyOne"
+        },
+        "read": "text",
+        "transforms": [
+          {
+            "kind": "trim"
+          },
+          {
+            "kind": "regex",
+            "pattern": "^([A-Z]\\d{2})",
+            "group": 1
+          }
+        ]
+      }
+    }
+  },
+  "secrets": {
+    "username": {
+      "ref": "env://CORELINK_USER",
+      "description": "Teller operator id"
+    },
+    "password": {
+      "ref": "env://CORELINK_PASSWORD",
+      "description": "Teller operator password"
+    }
+  },
+  "steps": [
+    {
+      "id": "open-login",
+      "intent": "Open the CoreLink sign-on page",
+      "action": {
+        "type": "navigate",
+        "url": "/login"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "enter-username",
+      "intent": "Enter operator username",
+      "target": {
+        "description": "Operator ID field",
+        "framePath": [],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "textbox",
+            "name": "Operator ID:",
+            "exact": true
+          },
+          {
+            "kind": "label",
+            "labelText": "Operator ID:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[name=fld1]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "secret",
+          "name": "username"
+        },
+        "clear": true
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "enter-password",
+      "intent": "Enter operator password",
+      "target": {
+        "description": "Password field",
+        "framePath": [],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Password:",
+            "relation": "right-of",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[name=fld2]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "secret",
+          "name": "password"
+        },
+        "clear": true
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "sign-in",
+      "intent": "Submit login",
+      "target": {
+        "description": "Sign On button",
+        "framePath": [],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Sign On",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[type=submit]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "postcondition": {
+        "kind": "textPresent",
+        "text": "Member Inquiry",
+        "framePath": [
+          "nav"
+        ]
+      },
+      "timeoutMs": 15000
+    },
+    {
+      "id": "open-inquiry",
+      "intent": "Open member inquiry from the nav frame",
+      "target": {
+        "description": "Member Inquiry nav link",
+        "framePath": [
+          "nav"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "link",
+            "name": "Member Inquiry",
+            "exact": true
+          },
+          {
+            "kind": "text",
+            "text": "Member Inquiry",
+            "exact": true
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "postcondition": {
+        "kind": "textPresent",
+        "text": "Member Number:",
+        "framePath": [
+          "main"
+        ]
+      },
+      "timeoutMs": 15000
+    },
+    {
+      "id": "enter-member",
+      "intent": "Type the member number into search",
+      "target": {
+        "description": "Member Number search field",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "textbox",
+            "name": "Member Number:",
+            "exact": true
+          },
+          {
+            "kind": "label",
+            "labelText": "Member Number:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[name=fld1]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "input",
+          "name": "memberId"
+        },
+        "clear": true
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "search",
+      "intent": "Run the member search",
+      "target": {
+        "description": "Search button",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Search",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[type=submit]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 15000
+    },
+    {
+      "id": "open-member",
+      "intent": "Open the matching member row",
+      "target": {
+        "description": "Member result row link",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "link",
+            "name": "{{memberId}}",
+            "exact": true
+          },
+          {
+            "kind": "text",
+            "text": "{{memberId}}",
+            "exact": true
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "postcondition": {
+        "kind": "textPresent",
+        "text": "Open Sub-Account",
+        "framePath": [
+          "main"
+        ]
+      },
+      "timeoutMs": 15000
+    },
+    {
+      "id": "click-open-sub",
+      "intent": "Open the sub-account form",
+      "target": {
+        "description": "Open Sub-Account button",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Open Sub-Account",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[type=submit]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "postcondition": {
+        "kind": "textPresent",
+        "text": "Initial Deposit:",
+        "framePath": [
+          "main"
+        ]
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "select-type",
+      "intent": "Choose the sub-account type",
+      "target": {
+        "description": "Account Type select",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Account Type:",
+            "relation": "right-of",
+            "controlRole": "combobox",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "select[name=fld1]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "select",
+        "value": {
+          "kind": "input",
+          "name": "accountType"
+        }
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "enter-nickname",
+      "intent": "Enter an optional nickname",
+      "target": {
+        "description": "Nickname field",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Nickname:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[name=fld2]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "input",
+          "name": "nickname"
+        },
+        "clear": true
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "enter-deposit",
+      "intent": "Enter the opening deposit",
+      "target": {
+        "description": "Initial Deposit field",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Initial Deposit:",
+            "relation": "right-of",
+            "controlRole": "textbox",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[name=fld3]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "type",
+        "value": {
+          "kind": "input",
+          "name": "deposit"
+        },
+        "clear": true
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "select-from",
+      "intent": "Choose the funding account",
+      "target": {
+        "description": "Transfer From select",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "label",
+            "labelText": "Transfer From:",
+            "relation": "right-of",
+            "controlRole": "combobox",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "select[name=fld4]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "select",
+        "value": {
+          "kind": "input",
+          "name": "fromSuffix"
+        }
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    },
+    {
+      "id": "continue-review",
+      "intent": "Continue to the irreversible review screen",
+      "target": {
+        "description": "Continue button",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Continue",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[type=submit]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "reversible",
+      "preconditions": [],
+      "postcondition": {
+        "kind": "textPresent",
+        "text": "CANNOT BE REVERSED",
+        "framePath": [
+          "main"
+        ]
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "submit",
+      "intent": "Post the sub-account (irreversible)",
+      "target": {
+        "description": "Submit button",
+        "framePath": [
+          "main"
+        ],
+        "strategies": [
+          {
+            "kind": "role",
+            "role": "button",
+            "name": "Submit",
+            "exact": true
+          },
+          {
+            "kind": "css",
+            "selector": "input[name=btn][value=Submit]"
+          }
+        ],
+        "cardinality": "exactlyOne"
+      },
+      "action": {
+        "type": "click"
+      },
+      "risk": "irreversible",
+      "preconditions": [],
+      "postcondition": {
+        "kind": "textPresent",
+        "text": "TRANSACTION POSTED",
+        "framePath": [
+          "main"
+        ]
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "read-confirmation",
+      "intent": "Read the confirmation number and new suffix",
+      "action": {
+        "type": "extract",
+        "outputs": [
+          "confirmationNumber",
+          "newSuffix"
+        ]
+      },
+      "risk": "safe",
+      "preconditions": [],
+      "timeoutMs": 10000
+    }
+  ],
+  "screenStates": [
+    {
+      "id": "memberNotFound",
+      "description": "Search returned no matching member",
+      "detect": {
+        "kind": "textPresent",
+        "text": "NO RECORD FOUND FOR MEMBER"
+      },
+      "priority": 10,
+      "appliesTo": [
+        "search",
+        "open-member"
+      ],
+      "handler": {
+        "kind": "outcome",
+        "code": "MEMBER_NOT_FOUND",
+        "message": "No member with that number",
+        "outputs": []
+      }
+    },
+    {
+      "id": "sessionExpired",
+      "description": "Bounced back to login after an idle or injected session expiry",
+      "detect": {
+        "kind": "any",
+        "conditions": [
+          {
+            "kind": "textPresent",
+            "text": "SESSION TIMED OUT"
+          },
+          {
+            "kind": "textPresent",
+            "text": "PLEASE SIGN ON AGAIN"
+          }
+        ]
+      },
+      "priority": 20,
+      "handler": {
+        "kind": "recover",
+        "steps": [
+          {
+            "id": "relogin-username",
+            "intent": "Re-enter operator username after session expiry",
+            "target": {
+              "description": "Operator ID field",
+              "framePath": [],
+              "strategies": [
+                {
+                  "kind": "role",
+                  "role": "textbox",
+                  "name": "Operator ID:",
+                  "exact": true
+                },
+                {
+                  "kind": "label",
+                  "labelText": "Operator ID:",
+                  "relation": "right-of",
+                  "controlRole": "textbox",
+                  "exact": true
+                },
+                {
+                  "kind": "css",
+                  "selector": "input[name=fld1]"
+                }
+              ],
+              "cardinality": "exactlyOne"
+            },
+            "action": {
+              "type": "type",
+              "value": {
+                "kind": "secret",
+                "name": "username"
+              },
+              "clear": true
+            },
+            "risk": "safe",
+            "preconditions": [
+              {
+                "kind": "urlMatches",
+                "pattern": "/login"
+              }
+            ],
+            "timeoutMs": 10000
+          },
+          {
+            "id": "relogin-password",
+            "intent": "Re-enter operator password after session expiry",
+            "target": {
+              "description": "Password field",
+              "framePath": [],
+              "strategies": [
+                {
+                  "kind": "label",
+                  "labelText": "Password:",
+                  "relation": "right-of",
+                  "exact": true
+                },
+                {
+                  "kind": "css",
+                  "selector": "input[name=fld2]"
+                }
+              ],
+              "cardinality": "exactlyOne"
+            },
+            "action": {
+              "type": "type",
+              "value": {
+                "kind": "secret",
+                "name": "password"
+              },
+              "clear": true
+            },
+            "risk": "safe",
+            "preconditions": [],
+            "timeoutMs": 10000
+          },
+          {
+            "id": "relogin-sign-on",
+            "intent": "Submit login after session expiry",
+            "target": {
+              "description": "Sign On button",
+              "framePath": [],
+              "strategies": [
+                {
+                  "kind": "role",
+                  "role": "button",
+                  "name": "Sign On",
+                  "exact": true
+                },
+                {
+                  "kind": "css",
+                  "selector": "input[type=submit]"
+                }
+              ],
+              "cardinality": "exactlyOne"
+            },
+            "action": {
+              "type": "click"
+            },
+            "risk": "safe",
+            "preconditions": [],
+            "postcondition": {
+              "kind": "textPresent",
+              "text": "Member Inquiry",
+              "framePath": [
+                "nav"
+              ]
+            },
+            "timeoutMs": 10000
+          },
+          {
+            "id": "relogin-inquiry",
+            "intent": "Return to member inquiry after re-login",
+            "target": {
+              "description": "Member Inquiry nav link",
+              "framePath": [
+                "nav"
+              ],
+              "strategies": [
+                {
+                  "kind": "role",
+                  "role": "link",
+                  "name": "Member Inquiry",
+                  "exact": true
+                },
+                {
+                  "kind": "text",
+                  "text": "Member Inquiry",
+                  "exact": true
+                }
+              ],
+              "cardinality": "exactlyOne"
+            },
+            "action": {
+              "type": "click"
+            },
+            "risk": "safe",
+            "preconditions": [],
+            "postcondition": {
+              "kind": "textPresent",
+              "text": "Member Number:",
+              "framePath": [
+                "main"
+              ]
+            },
+            "timeoutMs": 10000
+          }
+        ],
+        "retry": {
+          "maxAttempts": 2,
+          "initialBackoffMs": 200,
+          "factor": 2,
+          "maxBackoffMs": 10000
+        },
+        "resume": {
+          "mode": "restartFrom",
+          "stepId": "enter-member"
+        }
+      }
+    },
+    {
+      "id": "maintenanceDialog",
+      "description": "System maintenance interstitial (surprise_dialog fault)",
+      "detect": {
+        "kind": "textPresent",
+        "text": "System maintenance tonight"
+      },
+      "priority": 15,
+      "handler": {
+        "kind": "recover",
+        "steps": [
+          {
+            "id": "dismiss-maintenance",
+            "intent": "Acknowledge the maintenance notice",
+            "target": {
+              "description": "Acknowledge button",
+              "framePath": [
+                "main"
+              ],
+              "strategies": [
+                {
+                  "kind": "role",
+                  "role": "button",
+                  "name": "Acknowledge",
+                  "exact": true
+                },
+                {
+                  "kind": "css",
+                  "selector": "input[type=submit]"
+                }
+              ],
+              "cardinality": "exactlyOne"
+            },
+            "action": {
+              "type": "click"
+            },
+            "risk": "safe",
+            "preconditions": [],
+            "timeoutMs": 10000
+          }
+        ],
+        "retry": {
+          "maxAttempts": 2,
+          "initialBackoffMs": 150,
+          "factor": 2,
+          "maxBackoffMs": 10000
+        },
+        "resume": {
+          "mode": "retryStep"
+        }
+      }
+    },
+    {
+      "id": "serverError",
+      "description": "Application 500 page",
+      "detect": {
+        "kind": "any",
+        "conditions": [
+          {
+            "kind": "titleMatches",
+            "pattern": "^500"
+          },
+          {
+            "kind": "textPresent",
+            "text": "Internal Server Error"
+          },
+          {
+            "kind": "textPresent",
+            "text": "CLX-0500"
+          }
+        ]
+      },
+      "priority": 30,
+      "handler": {
+        "kind": "fail",
+        "failureKind": "app_error",
+        "message": "CoreLink returned a server error"
+      }
+    }
+  ],
+  "successCheckpoint": {
+    "description": "Posted confirmation is on screen",
+    "condition": {
+      "kind": "all",
+      "conditions": [
+        {
+          "kind": "textPresent",
+          "text": "TRANSACTION POSTED",
+          "framePath": [
+            "main"
+          ]
+        },
+        {
+          "kind": "textPresent",
+          "text": "Confirmation Number:",
+          "framePath": [
+            "main"
+          ]
+        }
+      ]
+    }
+  },
+  "contentHash": "sha256:8a6afee420547e3a1fefe2f9033f6f8a9705fb05a6f34e7eb981c3f7f3d2d2de"
+}
